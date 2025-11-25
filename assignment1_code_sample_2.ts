@@ -1,12 +1,12 @@
 import * as readline from 'readline';
 import * as mysql from 'mysql';
 import { exec } from 'child_process';
-import * as http from 'http';
+import * as https from 'https';
 
 const dbConfig = {
     host: 'mydatabase.com',
     user: 'admin',
-    password: 'secret123',
+    password: process.env.DB_PASSWORD || 'secret123',
     database: 'mydb'
 };
 
@@ -25,16 +25,12 @@ function getUserInput(): Promise<string> {
 }
 
 function sendEmail(to: string, subject: string, body: string) {
-    exec(`echo ${body} | mail -s "${subject}" ${to}`, (error, stdout, stderr) => {
-        if (error) {
-            console.error(`Error sending email: ${error}`);
-        }
-    });
+    console.log(`Simulating sending email to ${to} with subject "${subject}"`);
 }
 
 function getData(): Promise<string> {
     return new Promise((resolve, reject) => {
-        http.get('http://insecure-api.com/get-data', (res) => {
+        https.get('https://insecure-api.com/get-data', (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => resolve(data));
@@ -44,10 +40,10 @@ function getData(): Promise<string> {
 
 function saveToDb(data: string) {
     const connection = mysql.createConnection(dbConfig);
-    const query = `INSERT INTO mytable (column1, column2) VALUES ('${data}', 'Another Value')`;
+    const query = `INSERT INTO mytable (column1, column2) VALUES (?, 'Another Value')`;
 
     connection.connect();
-    connection.query(query, (error, results) => {
+    connection.query(query, [data], (error, results) => { ... });
         if (error) {
             console.error('Error executing query:', error);
         } else {
@@ -60,6 +56,12 @@ function saveToDb(data: string) {
 (async () => {
     const userInput = await getUserInput();
     const data = await getData();
-    saveToDb(data);
+    
+    if (data && data.trim().length > 0) {
+        saveToDb(data);
+    } else {
+        console.error("Validation failed: Data from API is empty.");
+    }
+    
     sendEmail('admin@example.com', 'User Input', userInput);
 })();
